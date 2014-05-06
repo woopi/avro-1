@@ -21,6 +21,8 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.Vector;
 
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.AvroTypeException;
@@ -439,10 +441,32 @@ public class GenericData {
   protected int hashCodeAdd(int hashCode, Object o, Schema s) {
     return 31*hashCode + hashCode(o, s);
   }
+  
+  public List<Schema.Field> getSortedByCompareIdx(List<Schema.Field> orgFieldList) {
+    TreeMap<Integer,Schema.Field> idx2FieldMap = new TreeMap<Integer,Schema.Field>();
+    for (int i=0;i<orgFieldList.size();i++) {
+      idx2FieldMap.put((orgFieldList.get(i).getProp("compareIdx")!=null?Integer.parseInt(orgFieldList.get(i).getProp("compareIdx")):-orgFieldList.size()+i),orgFieldList.get(i));
+    }
+    List<Integer> orderingIdxList = new Vector<Integer>(idx2FieldMap.navigableKeySet());
+    List<Schema.Field> fieldList = new Vector<Schema.Field>();
+    for (int i=0;i<orderingIdxList.size();i++)  {
+      int index = orderingIdxList.get(i).intValue();
+      Schema.Field orgField = idx2FieldMap.get(index);
+      fieldList.add(orgField);
+    }
+    return fieldList;
+  }
+  
 
   /** Compare objects according to their schema.  If equal, return zero.  If
    * greater-than, return 1, if less than return -1.  Order is consistent with
    * that of {@link BinaryData#compare(byte[], int, byte[], int, Schema)}.
+   * 
+   * The compare method respects fields json property values compareIdx so that the order of the fields
+   * regarding the compare process is configurable in the schema.
+   * 
+   * Using "fake" schemas with slightly modified compareIdx and/or ignore properties it is easy to create
+   * comparators in a generic way (useful for hadoop mapreduce)
    */
   @SuppressWarnings(value="unchecked")
   public int compare(Object o1, Object o2, Schema s) {
@@ -451,7 +475,9 @@ public class GenericData {
     case RECORD:
       IndexedRecord r1 = (IndexedRecord)o1;
       IndexedRecord r2 = (IndexedRecord)o2;
-      for (Field f : s.getFields()) {
+      List<Schema.Field> compareIdxOrderedFieldList = getSortedByCompareIdx(s.getFields());
+      for (Field f : compareIdxOrderedFieldList) {
+      //for (Field f : s.getFields()) {
         if (f.order() == Field.Order.IGNORE)
           continue;                               // ignore this field
         int pos = f.pos();
