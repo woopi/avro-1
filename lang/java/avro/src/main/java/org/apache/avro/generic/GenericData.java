@@ -29,6 +29,9 @@ import java.util.WeakHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.Vector;
+
 
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.AvroTypeException;
@@ -798,6 +801,22 @@ public class GenericData {
   public int compare(Object o1, Object o2, Schema s) {
     return compare(o1, o2, s, false);
   }
+  
+  
+  public List<Schema.Field> getSortedByCompareIdx(List<Schema.Field> orgFieldList) {
+    TreeMap<Integer,Schema.Field> idx2FieldMap = new TreeMap<Integer,Schema.Field>();
+    for (int i=0;i<orgFieldList.size();i++) {
+      idx2FieldMap.put((orgFieldList.get(i).getProp("compareIdx")!=null?Integer.parseInt(orgFieldList.get(i).getProp("compareIdx")):-orgFieldList.size()+i),orgFieldList.get(i));
+    }
+    List<Integer> orderingIdxList = new Vector<Integer>(idx2FieldMap.navigableKeySet());
+    List<Schema.Field> fieldList = new Vector<Schema.Field>();
+    for (int i=0;i<orderingIdxList.size();i++)  {
+      int index = orderingIdxList.get(i).intValue();
+      Schema.Field orgField = idx2FieldMap.get(index);
+      fieldList.add(orgField);
+    }
+    return fieldList;
+  }
 
   /** Comparison implementation.  When equals is true, only checks for equality,
    * not for order. */
@@ -806,7 +825,9 @@ public class GenericData {
     if (o1 == o2) return 0;
     switch (s.getType()) {
     case RECORD:
-      for (Field f : s.getFields()) {
+      List<Schema.Field> compareIdxOrderedFieldList = getSortedByCompareIdx(s.getFields());
+      for (Field f : compareIdxOrderedFieldList) {
+      //  for (Field f : s.getFields()) {
         if (f.order() == Field.Order.IGNORE)
           continue;                               // ignore this field
         int pos = f.pos();
