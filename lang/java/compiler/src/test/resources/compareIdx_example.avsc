@@ -2,6 +2,8 @@
   "type": "record",
   "name": "SimpleRecord",
   "fields" : [
-    {"name": "value", "type": "int"}
+    {"name": "field1", "type": "int"    compareIdx="3"}
+    {"name": "field2", "type": "string" compareIdx="1"}
+    {"name": "field3", "type": "string" compareIdx="2"}
   ]
 }
